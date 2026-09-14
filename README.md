@@ -269,7 +269,7 @@ A detailed discussion, the fitted scaling exponents and the complete 60-row raw 
 ## 8. References
 
 - C. N. Sekharan, *A Linear-Time Monte Carlo Algorithm for Recognizing Block Hankel Matrices*,
-  manuscript TCS-D-26-00739. Definitions 4–7, Propositions 3–6, Algorithm 1 and Theorems 1–2 are
+  manuscript, Definitions 4–7, Propositions 3–6, Algorithm 1 and Theorems 1–2 are
   implemented in `src/bh/paper_hash.hpp`.
 - Z. Galil and K. Park, *Alphabet-independent two-dimensional witness computation*, SIAM Journal on
   Computing 25(5):907–935, 1996.
