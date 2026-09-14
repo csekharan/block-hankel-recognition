@@ -1,0 +1,42 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: g++ --version | head -1
+
+      - name: Build
+        run: make CXXFLAGS="-std=c++20 -O3 -march=native -DNDEBUG -Wall -Wextra -Werror"
+
+      - name: Smoke test (four methods must agree, no false positives)
+        run: |
+          set -o pipefail
+          ./compare time smoke.csv 240,480 1 0 | tee smoke.log
+          grep -q '^disagreements=0$' smoke.log
+          test "$(awk -F, 'NR>1 {s+=$8} END {print s+0}' smoke.csv)" = "0"
+
+      - name: False-positive study on 48 small matrices
+        run: |
+          set -o pipefail
+          ./compare fp 48 fp.csv | tee fp.log
+          grep -q 'mismatches=0' fp.log
+
+      - name: Upload smoke results
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-results
+          path: |
+            smoke.csv
+            smoke.log
+            fp.csv
+            fp.log

@@ -1,0 +1,20 @@
+# build products
+compare
+compare.exe
+*.o
+*.obj
+*.pdb
+
+# benchmark outputs produced by `make smoke` / `make fp` / `make bench` (the reference run lives in results/)
+smoke.csv
+smoke.log
+fp.csv
+fp.log
+time.csv
+
+# python / notebook clutter
+__pycache__/
+.ipynb_checkpoints/
+
+# extraction scratch
+_extract/
