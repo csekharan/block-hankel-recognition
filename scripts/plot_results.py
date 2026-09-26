@@ -112,9 +112,11 @@ def end_labels(ax, items, x, min_sep_frac=0.055):
         ax.text(x * 1.13, yl, text, va="center", ha="left", fontsize=8.5, color=INK2, clip_on=False)
 
 
-def figure_legend(fig, ax):
+def figure_legend(fig, ax, relabel=None):
     """One legend for the whole figure, in the band under the title, so no plot area is covered."""
     handles, labels = ax.get_legend_handles_labels()
+    if relabel:
+        labels = [relabel.get(l, l) for l in labels]
     fig.legend(handles, labels, loc="upper left", bbox_to_anchor=(0.012, 0.955), ncol=4, frameon=False,
                fontsize=8.5, labelcolor=INK2, handlelength=2.2, columnspacing=1.8)
 
@@ -161,6 +163,14 @@ def figure_C(df, out, med):
     plt.close(fig)
 
 
+DIRECT_NEG_NOTE = (
+    "Direct comparison omitted in this panel: on random matrices every candidate\n"
+    "pair is rejected by its first memcmp, so its total time is ≤ 0.1 ms at every\n"
+    "size (the resolution of the CSV) and does not grow with m². Divided by m² that\n"
+    "floor would draw a meaningless 1/m² line. Per candidate pair it costs ≈ 40–65 ns,\n"
+    "independent of m (see Figure C, right panel).")
+
+
 def figure_D(df, out, med):
     sizes = sorted(df["size"].unique())
     fig, axes = plt.subplots(1, 2, figsize=(12.4, 4.9), facecolor=SURFACE)
@@ -168,24 +178,20 @@ def figure_D(df, out, med):
         style(ax); ax.set_xscale("log"); ax.set_yscale("log")
         labels = []
         for key, long, short, color, marker in METHODS:
+            if kind == "No" and key == "direct_ms":
+                continue        # Θ(d(m)²) work at the timer floor: a per-entry figure would be an artifact
             ys = np.array([med.loc[(kind, m), key] * 1e6 / (m * m) for m in sizes])   # ns per entry
-            floor = ys <= 0
-            fl = np.array([FLOOR_MS * 1e6 / (m * m) for m in sizes])
-            yy = np.where(floor, fl, ys)
-            ax.plot(sizes, yy, color=color, linewidth=2, marker=marker, markersize=6, markeredgecolor=SURFACE,
+            ax.plot(sizes, ys, color=color, linewidth=2, marker=marker, markersize=6, markeredgecolor=SURFACE,
                     markeredgewidth=1, solid_capstyle="round", label=long, zorder=4)
-            if floor.any():
-                ax.plot(np.array(sizes)[floor], fl[floor], linestyle="none", marker=marker, markersize=6,
-                        markerfacecolor=SURFACE, markeredgecolor=color, markeredgewidth=1.4, zorder=5)
-            labels.append((yy[-1], short))
+            labels.append((ys[-1], short))
         ax.set_xlabel("matrix side m (log scale)"); ax.set_ylabel("nanoseconds per entry (log scale)")
         ax.set_title(title, fontsize=11, loc="left")
         ax.set_xticks(sizes); ax.set_xticklabels([str(s) for s in sizes], rotation=45, ha="right", fontsize=8)
-        ax.set_xlim(200, 19000); ax.set_ylim(1e-4 if kind == "No" else 0.5, 600)
+        ax.set_xlim(200, 19000); ax.set_ylim(0.02 if kind == "No" else 0.5, 600)
         end_labels(ax, labels, x=sizes[-1])
-    axes[1].text(0.02, 0.05, "hollow marker: ≤ 0.1 ms total, the resolution of the CSV",
-                 transform=axes[1].transAxes, fontsize=8, color=MUTED)
-    figure_legend(fig, axes[0])
+    axes[1].text(0.02, 0.04, DIRECT_NEG_NOTE, transform=axes[1].transAxes, fontsize=7.8, color=INK2,
+                 va="bottom", ha="left", linespacing=1.35)
+    figure_legend(fig, axes[0], relabel={"Direct comparison, early exit": "Direct comparison, early exit (left panel only, see note)"})
     fig.suptitle("Cost per matrix entry (median time ÷ m²) — a flat line is linear scaling; the height is the constant factor",
                  fontsize=10.5, color=INK, x=0.01, ha="left", y=0.985)
     fig.tight_layout(rect=(0, 0, 0.985, 0.87)); fig.savefig(out / "fig_D_ns_per_entry.png", dpi=170, facecolor=SURFACE)

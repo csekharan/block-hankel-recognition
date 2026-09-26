@@ -101,18 +101,23 @@ Block-Hankel positives:
 
 Random negatives:
 
-| m | Galil–Park ms | Z-pass ms | hashing ms | direct ms | GP ns/entry | Z ns/entry | hash ns/entry | direct ns/entry |
+| m | Galil–Park ms | Z-pass ms | hashing ms | direct ms | GP ns/entry | Z ns/entry | hash ns/entry | direct ns/pair |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 240 | 3.0 | 0.1 | 0.9 | 0.0 | 52 | 1.74 | 15.6 | < 0.9 |
-| 480 | 13.2 | 0.3 | 3.7 | 0.0 | 57 | 1.30 | 16.1 | < 0.2 |
-| 720 | 45.3 | 1.3 | 14.0 | 0.1 | 87 | 2.51 | 27.0 | 0.19 |
-| 960 | 58.8 | 1.0 | 14.6 | 0.0 | 64 | 1.09 | 15.8 | < 0.05 |
-| 1440 | 138.3 | 2.2 | 32.2 | 0.0 | 67 | 1.06 | 15.5 | < 0.02 |
-| 1920 | 273.5 | 3.7 | 57.3 | 0.0 | 74 | 1.00 | 15.5 | < 0.01 |
-| 2880 | 634.0 | 7.0 | 140.4 | 0.1 | 76 | 0.84 | 16.9 | 0.01 |
-| 3840 | 1182.8 | 9.0 | 252.2 | 0.0 | 80 | 0.61 | 17.1 | < 0.01 |
-| 7680 | 5731.2 | 29.6 | 1102.7 | 0.1 | 97 | 0.50 | 18.7 | 0.002 |
-| 15000 | 24655.3 | 77.1 | 3902.0 | 0.1 | 110 | 0.34 | 17.3 | < 0.001 |
+| 240 | 3.0 | 0.1 | 0.9 | 0.0 | 52 | 1.74 | 15.6 | < 139 |
+| 480 | 13.2 | 0.3 | 3.7 | 0.0 | 57 | 1.30 | 16.1 | < 95 |
+| 720 | 45.3 | 1.3 | 14.0 | 0.1 | 87 | 2.51 | 27.0 | 119 |
+| 960 | 58.8 | 1.0 | 14.6 | 0.0 | 64 | 1.09 | 15.8 | < 69 |
+| 1440 | 138.3 | 2.2 | 32.2 | 0.0 | 67 | 1.06 | 15.5 | < 41 |
+| 1920 | 273.5 | 3.7 | 57.3 | 0.0 | 74 | 1.00 | 15.5 | < 52 |
+| 2880 | 634.0 | 7.0 | 140.4 | 0.1 | 76 | 0.84 | 16.9 | 60 |
+| 3840 | 1182.8 | 9.0 | 252.2 | 0.0 | 80 | 0.61 | 17.1 | < 41 |
+| 7680 | 5731.2 | 29.6 | 1102.7 | 0.1 | 97 | 0.50 | 18.7 | 66 |
+| 15000 | 24655.3 | 77.1 | 3902.0 | 0.1 | 110 | 0.34 | 17.3 | 66 |
+
+For the direct baseline the last column is the cost per *candidate pair*, not per entry: on random
+input every pair is rejected by its first `memcmp`, so the total time is `Θ(d(m)²)` and sits at the
+0.1 ms resolution of the CSV (`<` marks a recorded 0.0, i.e. below 0.05 ms). Dividing such a floor by
+`m²` would produce a spurious `1/m²` decay, which is why the negatives panel of Figure D omits it.
 
 Observations:
 
@@ -123,8 +128,10 @@ Observations:
   matching stretch runs `memcmp` over the whole row of length `m − q`, and the number of such comparisons
   per divisor is `Θ(m)`; on negatives each `memcmp` stops within the first few bytes and the whole pass
   costs `Θ(m)` per divisor, hence the *falling* per-entry cost.
-- Direct comparison on negatives is below the 0.1 ms resolution of the CSV at most sizes: each of the up
-  to 1520 candidate pairs is rejected by the first `memcmp`.
+- Direct comparison on negatives costs about 40–65 ns per candidate pair, independent of `m`: each of
+  the up to 1680 pairs is rejected by its first `memcmp`, so the total (≤ 0.1 ms) tracks `d(m)²`, not
+  `m²`. The 0.1 ms readings fall exactly on the sizes with the most pairs (720, 2880, 7680, 15000) and
+  3840, with fewer pairs than 2880, drops back to 0.0.
 - `m = 720` is anomalous for all four methods (per-entry cost 1.6–1.8 × the neighbouring sizes, including
   the direct baseline). A slowdown that hits every method by the same factor points to the shared VM,
   not to the algorithms.
@@ -217,7 +224,7 @@ the same CSV.
 | [`figures/fig_A_galil_park_linear.png`](figures/fig_A_galil_park_linear.png) | Galil–Park, linear axes, positives and negatives |
 | [`figures/fig_B_fast_methods_linear.png`](figures/fig_B_fast_methods_linear.png) | Z-pass, hashing, direct comparison, linear axes |
 | [`figures/fig_C_runtime_loglog.png`](figures/fig_C_runtime_loglog.png) | all four methods, log–log axes, with a slope-1 guide |
-| [`figures/fig_D_ns_per_entry.png`](figures/fig_D_ns_per_entry.png) | nanoseconds per entry against `m` |
+| [`figures/fig_D_ns_per_entry.png`](figures/fig_D_ns_per_entry.png) | nanoseconds per entry against `m`; the direct baseline is omitted from the negatives panel (see §3) |
 | [`figures/fig_E_ratio_to_hashing.png`](figures/fig_E_ratio_to_hashing.png) | positives, time relative to hashing |
 
 ![A](figures/fig_A_galil_park_linear.png)

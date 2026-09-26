@@ -188,7 +188,11 @@ linear on block-Hankel matrices.
 height is the constant. Hashing costs 16–19 ns per entry regardless of input or size. Z-pass on
 positives climbs from 7 to 39 ns per entry as rows get longer; on negatives it drops to 0.3 ns per
 entry. Galil–Park drifts upward from about 50 to 110 ns per entry on negatives and 170 to 280 ns per
-entry on positives.
+entry on positives. The direct baseline is deliberately left out of the negatives panel: on random
+matrices every candidate pair is rejected by its first `memcmp`, so its total time is a constant
+≤ 0.1 ms at every size, at the resolution of the CSV, and dividing that floor by m² would draw a
+spurious 1/m² decay. Its cost there is about 40–65 ns per candidate pair, independent of m; the flat
+total is visible in Figure C.
 
 ![Figure D: cost per entry](results/figures/fig_D_ns_per_entry.png)
 
