@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Plot the shared-matrix benchmark in results/time_colab.csv.
+"""Plot the shared-matrix benchmark in results/time_colab.csv.  Every axis is linear.
 
 Figures A and B reproduce the two charts of notebooks/block_Hankel_benchmarking.ipynb
-verbatim (same code, same colours, linear axes).  Figures C-E are additional views of the
-same data, drawn with a colour-blind-safe palette:
+verbatim (same code, same colours).  Figures C-E are additional views of the same data,
+drawn with a colour-blind-safe palette and one small panel per method so that no method
+flattens another:
 
-  C  runtime on log-log axes, all four methods, one panel per input kind
-  D  cost per matrix entry (median time / m^2); a flat line means linear scaling
+  C  runtime against matrix entries, one panel per method and input kind, each on its own
+     linear scale from zero
+  D  cost per matrix entry (median time / m^2) per method and input kind; a flat panel is
+     linear scaling and its height is the constant factor
   E  median time relative to 2-D hashing on the block-Hankel positives
 
 Usage:  python scripts/plot_results.py [--csv results/time_colab.csv] [--out results/figures] [--reps 3]
@@ -66,7 +69,7 @@ def notebook_figures(df, out, reps):
     plt.close("all")
 
 
-# ------------------------------------------------------------------ derived figures
+# ------------------------------------------------------------------ derived figures (linear axes)
 # Categorical palette validated for colour-vision deficiency (adjacent pairs, light surface);
 # the colour follows the method in every figure below.
 METHODS = [("gp_ms", "Galil–Park witness computation", "Galil–Park", "#2a78d6", "o"),
@@ -74,8 +77,23 @@ METHODS = [("gp_ms", "Galil–Park witness computation", "Galil–Park", "#2a78d
            ("hash_k2_ms", "2-D polynomial hashing, k = 2", "hashing", "#1baf7a", "^"),
            ("direct_ms", "Direct comparison, early exit", "direct", "#4a3aa7", "D")]
 KINDS = [("Yes", "Block Hankel (3 lattice positives per size)"), ("No", "No block structure (3 random negatives per size)")]
+KIND_SHORT = {"Yes": "block Hankel", "No": "random"}
 SURFACE, INK, INK2, MUTED, GRID, AXIS = "#fcfcfb", "#0b0b0b", "#52514e", "#898781", "#e1e0d9", "#c3c2b7"
-FLOOR_MS = 0.05          # a recorded 0.0 ms means "below the 0.1 ms resolution of the CSV"
+
+DIRECT_NEG_NOTE = (
+    "Not plotted. On random matrices every\n"
+    "candidate pair is rejected by its first\n"
+    "memcmp: total time ≤ 0.1 ms at every size\n"
+    "(the resolution of the CSV), ≈ 40–65 ns per\n"
+    "candidate pair, independent of m. Work is\n"
+    "Θ(d(m)²), not Θ(m²), so a per-entry figure\n"
+    "would only be that floor divided by m².\n"
+    "See Figure C.")
+ZPASS_NEG_NOTE = (
+    "total time still grows (0.1 → 77 ms), but the\n"
+    "work is ≈ 2·m·d(m) memcmp calls that end in\n"
+    "their first bytes: Θ(m·d(m)), sub-quadratic,\n"
+    "so the cost per entry falls")
 
 
 def style(ax):
@@ -85,40 +103,35 @@ def style(ax):
     for side in ("left", "bottom"):
         ax.spines[side].set_color(AXIS); ax.spines[side].set_linewidth(0.8)
     ax.grid(True, which="major", color=GRID, linewidth=0.8, linestyle="-")
-    ax.grid(False, which="minor")
     ax.set_axisbelow(True)
-    ax.tick_params(colors=INK2, labelsize=9, length=3, width=0.8)
+    ax.tick_params(colors=INK2, labelsize=8, length=3, width=0.8)
     ax.xaxis.label.set_color(INK2); ax.yaxis.label.set_color(INK2)
     ax.title.set_color(INK)
 
 
-def end_labels(ax, items, x, min_sep_frac=0.055):
-    """items: (y, text) pairs.  Labels sit right of x; collisions are resolved by nudging
-    in log space and drawing a hairline leader from the true y to the label."""
-    lo, hi = np.log10(ax.get_ylim())
-    sep = min_sep_frac * (hi - lo)
-    items = sorted(items, key=lambda t: t[0])
-    ys = [np.log10(y) for y, _ in items]
-    placed = []
-    for v in ys:
-        placed.append(v if not placed or v - placed[-1] >= sep else placed[-1] + sep)
-    if placed and placed[-1] > hi - 0.02 * (hi - lo):            # keep the stack inside the axes
-        shift = placed[-1] - (hi - 0.02 * (hi - lo))
-        placed = [p - shift for p in placed]
-    for (y, text), p in zip(items, placed):
-        yl = 10 ** p
-        if abs(np.log10(y) - p) > 1e-9:
-            ax.plot([x, x * 1.10], [y, yl], color=AXIS, linewidth=0.7, zorder=2, clip_on=False)
-        ax.text(x * 1.13, yl, text, va="center", ha="left", fontsize=8.5, color=INK2, clip_on=False)
+def fmt_ms(v):
+    if v >= 1000:
+        return f"{v / 1000:.1f} s"
+    return f"{v:.1f} ms" if v >= 1 else f"{v:.2f} ms"
 
 
-def figure_legend(fig, ax, relabel=None):
-    """One legend for the whole figure, in the band under the title, so no plot area is covered."""
-    handles, labels = ax.get_legend_handles_labels()
-    if relabel:
-        labels = [relabel.get(l, l) for l in labels]
-    fig.legend(handles, labels, loc="upper left", bbox_to_anchor=(0.012, 0.955), ncol=4, frameon=False,
-               fontsize=8.5, labelcolor=INK2, handlelength=2.2, columnspacing=1.8)
+def endpoint_label(ax, x, y, text):
+    ax.annotate(text, (x, y), xytext=(-4, 7), textcoords="offset points", ha="right", va="bottom",
+                fontsize=8, color=INK2)
+
+
+def series(ax, xs, ys, color, marker, label=None):
+    ax.plot(xs, ys, color=color, linewidth=2, marker=marker, markersize=5.5, markeredgecolor=SURFACE,
+            markeredgewidth=1, solid_capstyle="round", label=label, zorder=4)
+
+
+def ordinal_x(ax, sizes, xlabel):
+    xs = np.arange(len(sizes))
+    ax.set_xticks(xs); ax.set_xticklabels([str(s) for s in sizes], rotation=45, ha="right", fontsize=7.5)
+    ax.set_xlim(-0.5, len(sizes) - 0.5)
+    if xlabel:
+        ax.set_xlabel(xlabel)
+    return xs
 
 
 def medians(df):
@@ -126,100 +139,96 @@ def medians(df):
 
 
 def figure_C(df, out, med):
+    """Runtime against entries, one linear panel per method and input kind."""
     sizes = sorted(df["size"].unique())
-    fig, axes = plt.subplots(1, 2, figsize=(12.4, 4.9), facecolor=SURFACE)
-    for ax, (kind, title) in zip(axes, KINDS):
-        style(ax); ax.set_xscale("log"); ax.set_yscale("log")
+    fig, axes = plt.subplots(2, 4, figsize=(13.6, 6.4), facecolor=SURFACE)
+    for r, (kind, _) in enumerate(KINDS):
         sub = df[df.block_hankel == kind]
-        labels = []
-        for key, long, short, color, marker in METHODS:
-            xs = np.array([m * m for m in sizes], dtype=float)
-            ys = np.array([med.loc[(kind, m), key] for m in sizes])
+        for c, (key, long, short, color, marker) in enumerate(METHODS):
+            ax = axes[r][c]; style(ax)
             pts = sub[["size", key]].to_numpy(dtype=float)
-            zero = pts[:, 1] <= 0
-            ax.scatter(pts[~zero, 0] ** 2, pts[~zero, 1], s=14, color=color, marker=marker, alpha=0.35,
+            xs = np.array([m * m / 1e6 for m in sizes]); ys = np.array([med.loc[(kind, m), key] for m in sizes])
+            ax.scatter(pts[:, 0] ** 2 / 1e6, pts[:, 1], s=14, color=color, marker=marker, alpha=0.35,
                        edgecolors=SURFACE, linewidths=0.6, zorder=3)
-            floor = ys <= 0
-            ax.plot(xs, np.where(floor, FLOOR_MS, ys), color=color, linewidth=2, marker=marker, markersize=6,
-                    markeredgecolor=SURFACE, markeredgewidth=1, solid_capstyle="round", label=long, zorder=4)
-            if floor.any():                                         # hollow markers: at or below resolution
-                ax.plot(xs[floor], np.full(floor.sum(), FLOOR_MS), linestyle="none", marker=marker, markersize=6,
-                        markerfacecolor=SURFACE, markeredgecolor=color, markeredgewidth=1.4, zorder=5)
-            labels.append((max(ys[-1], FLOOR_MS), short))
-        ax.set_xlabel("matrix entries N = m² (log scale)"); ax.set_ylabel("time (ms, log scale)")
-        ax.set_title(title, fontsize=11, loc="left")
-        ax.set_xlim(3e4, 5e8); ax.set_ylim(0.03, 2e5)
-        # slope-1 guide: the direction a linear-time method follows (placed in an empty band)
-        gx = np.array([3e6, 1.2e8]); gy = (3e-6 if kind == "Yes" else 4e-6) * gx
-        ax.plot(gx, gy, color=MUTED, linewidth=1, zorder=2)
-        ax.text(gx[1] * 1.15, gy[1], "slope 1\n(linear in N)", fontsize=8, color=MUTED, va="center")
-        end_labels(ax, labels, x=sizes[-1] ** 2)
-    axes[1].text(0.02, 0.97, "hollow marker: ≤ 0.1 ms, the resolution of the CSV (drawn at 0.05 ms)",
-                 transform=axes[1].transAxes, fontsize=8, color=MUTED, va="top")
-    figure_legend(fig, axes[0])
-    fig.suptitle("Runtime of the four recognizers on the same matrices — log–log axes; "
-                 "median of 3 matrices per size, best of 3 runs, single core", fontsize=10.5, color=INK, x=0.01, ha="left", y=0.985)
-    fig.tight_layout(rect=(0, 0, 0.985, 0.87)); fig.savefig(out / "fig_C_runtime_loglog.png", dpi=170, facecolor=SURFACE)
+            ax.set_xlim(0, 240)
+            ax.set_title(f"{short} · {KIND_SHORT[kind]}", fontsize=9.5, loc="left")
+            if key == "direct_ms" and kind == "No":
+                # every reading is 0.0 or 0.1 ms: quantisation, not a trend -- markers only, no line
+                ax.plot(xs, ys, linestyle="none", marker=marker, markersize=5.5, color=color,
+                        markeredgecolor=SURFACE, markeredgewidth=1, zorder=4)
+                ax.axhline(0.1, color=AXIS, linewidth=0.8, zorder=2)
+                ax.set_ylim(0, 0.34)
+                ax.text(0.03, 0.95, "all 30 readings are 0.0 or 0.1 ms: at or below the\n"
+                                    "resolution of the CSV (one memcmp per candidate pair,\n"
+                                    "Θ(d(m)²) work, ≈ 40–65 ns per pair). No line drawn.",
+                        transform=ax.transAxes, fontsize=7.2, color=INK2, va="top", linespacing=1.35)
+            else:
+                series(ax, xs, ys, color, marker)
+                ax.set_ylim(0, float(pts[:, 1].max()) * 1.2)
+                endpoint_label(ax, xs[-1], ys[-1], fmt_ms(ys[-1]))
+            if c == 0:
+                ax.set_ylabel("time (ms)")
+            if r == 1:
+                ax.set_xlabel("matrix entries (millions)")
+    fig.suptitle("Runtime of each recognizer on its own linear scale — faded dots: the 3 matrices per size; "
+                 "line: their median; best of 3 runs, single core", fontsize=10.5, color=INK, x=0.01, ha="left")
+    fig.tight_layout(rect=(0, 0, 1, 0.955)); fig.savefig(out / "fig_C_runtime_small_multiples.png", dpi=170, facecolor=SURFACE)
     plt.close(fig)
 
 
-DIRECT_NEG_NOTE = (
-    "Direct comparison omitted in this panel: on random matrices every candidate\n"
-    "pair is rejected by its first memcmp, so its total time is ≤ 0.1 ms at every\n"
-    "size (the resolution of the CSV) and does not grow with m². Divided by m² that\n"
-    "floor would draw a meaningless 1/m² line. Per candidate pair it costs ≈ 40–65 ns,\n"
-    "independent of m (see Figure C, right panel).")
-
-
 def figure_D(df, out, med):
+    """Nanoseconds per entry, one linear panel per method and input kind, sizes equally spaced."""
     sizes = sorted(df["size"].unique())
-    fig, axes = plt.subplots(1, 2, figsize=(12.4, 4.9), facecolor=SURFACE)
-    for ax, (kind, title) in zip(axes, KINDS):
-        style(ax); ax.set_xscale("log"); ax.set_yscale("log")
-        labels = []
-        for key, long, short, color, marker in METHODS:
+    fig, axes = plt.subplots(2, 4, figsize=(13.6, 6.4), facecolor=SURFACE)
+    for r, (kind, _) in enumerate(KINDS):
+        for c, (key, long, short, color, marker) in enumerate(METHODS):
+            ax = axes[r][c]; style(ax)
+            ax.set_title(f"{short} · {KIND_SHORT[kind]}", fontsize=9.5, loc="left")
+            xs = ordinal_x(ax, sizes, "matrix side m (ten sizes, equally spaced)" if r == 1 else None)
+            if c == 0:
+                ax.set_ylabel("nanoseconds per entry")
             if kind == "No" and key == "direct_ms":
-                continue        # Θ(d(m)²) work at the timer floor: a per-entry figure would be an artifact
-            ys = np.array([med.loc[(kind, m), key] * 1e6 / (m * m) for m in sizes])   # ns per entry
-            ax.plot(sizes, ys, color=color, linewidth=2, marker=marker, markersize=6, markeredgecolor=SURFACE,
-                    markeredgewidth=1, solid_capstyle="round", label=long, zorder=4)
-            labels.append((ys[-1], short))
-        ax.set_xlabel("matrix side m (log scale)"); ax.set_ylabel("nanoseconds per entry (log scale)")
-        ax.set_title(title, fontsize=11, loc="left")
-        ax.set_xticks(sizes); ax.set_xticklabels([str(s) for s in sizes], rotation=45, ha="right", fontsize=8)
-        ax.set_xlim(200, 19000); ax.set_ylim(0.02 if kind == "No" else 0.5, 600)
-        end_labels(ax, labels, x=sizes[-1])
-    axes[1].text(0.02, 0.04, DIRECT_NEG_NOTE, transform=axes[1].transAxes, fontsize=7.8, color=INK2,
-                 va="bottom", ha="left", linespacing=1.35)
-    figure_legend(fig, axes[0], relabel={"Direct comparison, early exit": "Direct comparison, early exit (left panel only, see note)"})
-    fig.suptitle("Cost per matrix entry (median time ÷ m²) — a flat line is linear scaling; the height is the constant factor",
-                 fontsize=10.5, color=INK, x=0.01, ha="left", y=0.985)
-    fig.tight_layout(rect=(0, 0, 0.985, 0.87)); fig.savefig(out / "fig_D_ns_per_entry.png", dpi=170, facecolor=SURFACE)
+                ax.set_ylim(0, 1); ax.set_yticks([]); ax.grid(False)
+                ax.text(0.03, 0.95, DIRECT_NEG_NOTE, transform=ax.transAxes, fontsize=7.2, color=INK2, va="top", linespacing=1.35)
+                continue
+            ys = np.array([med.loc[(kind, m), key] * 1e6 / (m * m) for m in sizes])
+            series(ax, xs, ys, color, marker)
+            headroom = 1.8 if (kind == "No" and key == "zpass_ms") else 1.25
+            ax.set_ylim(0, ys.max() * headroom)
+            endpoint_label(ax, xs[-1], ys[-1], f"{ys[-1]:.1f} ns" if ys[-1] >= 1 else f"{ys[-1]:.2f} ns")
+            if kind == "No" and key == "zpass_ms":
+                ax.text(0.97, 0.95, ZPASS_NEG_NOTE, transform=ax.transAxes, fontsize=7.2, color=INK2, va="top", ha="right", linespacing=1.35)
+    fig.suptitle("Cost per matrix entry (median time ÷ m²) on linear axes — a flat panel is linear scaling; its height is the constant factor",
+                 fontsize=10.5, color=INK, x=0.01, ha="left")
+    fig.tight_layout(rect=(0, 0, 1, 0.955)); fig.savefig(out / "fig_D_ns_per_entry.png", dpi=170, facecolor=SURFACE)
     plt.close(fig)
 
 
 def figure_E(df, out, med):
+    """Block-Hankel positives, median time relative to hashing, linear axes, two panels."""
     sizes = sorted(df["size"].unique())
-    fig, ax = plt.subplots(1, 1, figsize=(7.4, 4.9), facecolor=SURFACE)
-    style(ax); ax.set_xscale("log"); ax.set_yscale("log")
     base = np.array([med.loc[("Yes", m), "hash_k2_ms"] for m in sizes])
-    ax.axhline(1.0, color=MUTED, linewidth=1, zorder=2)
-    ax.text(sizes[0] * 0.98, 1.0, "2-D hashing = 1", fontsize=8.5, color=MUTED, va="bottom", ha="left")
-    labels = []
-    for key, long, short, color, marker in METHODS:
-        if key == "hash_k2_ms":
-            continue
-        ratio = np.array([med.loc[("Yes", m), key] for m in sizes]) / base
-        ax.plot(sizes, ratio, color=color, linewidth=2, marker=marker, markersize=6, markeredgecolor=SURFACE,
-                markeredgewidth=1, solid_capstyle="round", label=long, zorder=4)
-        labels.append((ratio[-1], f"{short}  {ratio[-1]:.1f}×"))
-    ax.set_xlabel("matrix side m (log scale)"); ax.set_ylabel("median time ÷ median hashing time (log scale)")
-    ax.set_xticks(sizes); ax.set_xticklabels([str(s) for s in sizes], rotation=45, ha="right", fontsize=8)
-    ax.set_xlim(200, 19000); ax.set_ylim(0.07, 80)
-    ax.set_title("Block Hankel positives: time relative to 2-D hashing", fontsize=11, loc="left")
-    ax.legend(loc="upper left", fontsize=8.5, frameon=False, labelcolor=INK2)
-    end_labels(ax, labels, x=sizes[-1], min_sep_frac=0.07)
-    fig.tight_layout(rect=(0, 0, 0.93, 1)); fig.savefig(out / "fig_E_ratio_to_hashing.png", dpi=170, facecolor=SURFACE)
+    fig, axes = plt.subplots(1, 2, figsize=(12.4, 4.6), facecolor=SURFACE, gridspec_kw={"width_ratios": [1.15, 1]})
+    groups = [("Row Z-pass and direct comparison, relative to hashing", ["zpass_ms", "direct_ms"], 4.0),
+              ("Galil–Park, relative to hashing", ["gp_ms"], 18.0)]
+    for ax, (title, keys, ytop) in zip(axes, groups):
+        style(ax)
+        xs = ordinal_x(ax, sizes, "matrix side m (ten sizes, equally spaced)")
+        ax.axhline(1.0, color=MUTED, linewidth=1, zorder=2)
+        ax.text(len(sizes) - 0.6, 1.0, "hashing = 1", fontsize=8, color=MUTED, va="bottom", ha="right")
+        for key, long, short, color, marker in METHODS:
+            if key not in keys:
+                continue
+            ratio = np.array([med.loc[("Yes", m), key] for m in sizes]) / base
+            series(ax, xs, ratio, color, marker, label=long)
+            endpoint_label(ax, xs[-1], ratio[-1], f"{ratio[-1]:.1f}×")
+        ax.set_ylim(0, ytop)
+        ax.set_title(title, fontsize=10.5, loc="left")
+        ax.set_ylabel("median time ÷ median hashing time")
+        if len(keys) > 1:
+            ax.legend(loc="upper left", fontsize=8.5, frameon=False, labelcolor=INK2)
+    fig.suptitle("Block-Hankel positives: time relative to 2-D hashing (linear axes)", fontsize=10.5, color=INK, x=0.01, ha="left")
+    fig.tight_layout(rect=(0, 0, 1, 0.95)); fig.savefig(out / "fig_E_ratio_to_hashing.png", dpi=170, facecolor=SURFACE)
     plt.close(fig)
 
 

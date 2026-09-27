@@ -175,30 +175,37 @@ x-axis while hashing does the same work as on positives.
 
 ![Figure B: Z-pass, hashing and direct comparison, linear axes](results/figures/fig_B_fast_methods_linear.png)
 
-### 6.2 Additional views of the same data
+### 6.2 Additional views of the same data (linear axes)
 
-**Figure C** — all four methods on log–log axes, which is the only way to see the nine smaller sizes.
-Hashing is a straight slope-1 line in both panels; Galil–Park is parallel to it, 15 × higher. Z-pass and
-direct comparison change slope with the input: near-flat on random matrices (early exit), steeper than
-linear on block-Hankel matrices.
+**Figure C** — each method on its own linear scale, block-Hankel positives in the top row and random
+negatives in the bottom row, so the shape of every curve is visible without the slow methods flattening
+the fast ones. Hashing and Galil–Park are straight lines through the origin in both rows. Z-pass and
+direct comparison are straight on block-Hankel input and bend downward on random input, where their
+early exits do less than quadratic work; the direct baseline on random input never rises above the
+0.1 ms resolution of the CSV.
 
-![Figure C: runtime, log-log](results/figures/fig_C_runtime_loglog.png)
+![Figure C: runtime per method, linear small multiples](results/figures/fig_C_runtime_small_multiples.png)
 
-**Figure D** — nanoseconds per matrix entry (median time ÷ m²). A flat line is linear scaling; the
-height is the constant. Hashing costs 16–19 ns per entry regardless of input or size. Z-pass on
-positives climbs from 7 to 39 ns per entry as rows get longer; on negatives it drops to 0.3 ns per
-entry. Galil–Park drifts upward from about 50 to 110 ns per entry on negatives and 170 to 280 ns per
-entry on positives. The direct baseline is deliberately left out of the negatives panel: on random
-matrices every candidate pair is rejected by its first `memcmp`, so its total time is a constant
-≤ 0.1 ms at every size, at the resolution of the CSV, and dividing that floor by m² would draw a
-spurious 1/m² decay. Its cost there is about 40–65 ns per candidate pair, independent of m; the flat
-total is visible in Figure C.
+**Figure D** — nanoseconds per matrix entry (median time ÷ m²), one panel per method and input kind,
+linear y-axes from zero, the ten sizes equally spaced. A flat panel is linear scaling; its height is the
+constant. Hashing costs 16–19 ns per entry regardless of input or size. Z-pass on positives climbs from
+7 to 39 ns per entry as rows get longer. On random input the Z-pass panel falls from 1.7 to 0.3 ns per
+entry: its total time still grows 771-fold between m = 240 and 15000, but the work is about 2·m·d(m)
+`memcmp` calls that each end within their first bytes, so it touches a shrinking fraction of the matrix
+and the per-entry figure has to fall (the table in [`results/RESULTS.md`](results/RESULTS.md#3-medians-and-per-entry-cost)
+gives the call counts). Galil–Park drifts upward from about 50 to 110 ns per entry on negatives and 170
+to 280 ns per entry on positives. The direct baseline's negatives panel carries a note instead of data:
+on random matrices every candidate pair is rejected by its first `memcmp`, so its total time is a
+constant ≤ 0.1 ms at every size, at the resolution of the CSV, about 40–65 ns per candidate pair, and
+dividing that floor by m² would draw a spurious 1/m² decay.
 
 ![Figure D: cost per entry](results/figures/fig_D_ns_per_entry.png)
 
-**Figure E** — the block-Hankel positives, normalised to hashing. Below 1 million entries the direct
-baseline is the fastest (no preprocessing, few pairs); at 1440 the three fast methods meet; from there
-on hashing pulls away, and at `m = 15000` Z-pass takes 2.2 × and direct comparison 2.9 × its time.
+**Figure E** — the block-Hankel positives, normalised to hashing, linear axes: Z-pass and direct
+comparison on the left, Galil–Park on the right. Below 1 million entries the direct baseline is the
+fastest (no preprocessing, few pairs); at 1440 the three fast methods meet; from there on hashing pulls
+away, and at `m = 15000` Z-pass takes 2.2 × and direct comparison 2.9 × its time. Galil–Park stays
+between 11 × and 16 × throughout.
 
 ![Figure E: ratio to hashing on positives](results/figures/fig_E_ratio_to_hashing.png)
 

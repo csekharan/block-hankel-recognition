@@ -136,6 +136,25 @@ Observations:
   the direct baseline). A slowdown that hits every method by the same factor points to the shared VM,
   not to the algorithms.
 
+Why the Z-pass cost per entry falls on random input. For each divisor `q < m` the Z-algorithm makes
+about `2m` calls of the row-equality functor, and on random rows every call's `memcmp` ends within its
+first bytes. The total is about `2·m·(d(m) − 1)` short comparisons, `Θ(m·d(m))` rather than `Θ(m²)`: the
+total time grows 771-fold from `m = 240` to `15000` while `m²` grows 3906-fold. The cost per call rises
+from 11 to 66 ns as the matrix outgrows the caches (each call touches two rows `4m` bytes apart).
+
+| m | d(m) | median Z-pass ms | memcmp calls ≈ 2m(d(m)−1) | ns per call | ns per entry |
+|---:|---:|---:|---:|---:|---:|
+| 240 | 20 | 0.1 | 9 120 | 11.0 | 1.74 |
+| 480 | 24 | 0.3 | 22 080 | 13.6 | 1.30 |
+| 720 | 30 | 1.3 | 41 760 | 31.1 | 2.51 |
+| 960 | 28 | 1.0 | 51 840 | 19.3 | 1.09 |
+| 1440 | 36 | 2.2 | 100 800 | 21.8 | 1.06 |
+| 1920 | 32 | 3.7 | 119 040 | 31.1 | 1.00 |
+| 2880 | 42 | 7.0 | 236 160 | 29.6 | 0.84 |
+| 3840 | 36 | 9.0 | 268 800 | 33.5 | 0.61 |
+| 7680 | 40 | 29.6 | 599 040 | 49.4 | 0.50 |
+| 15000 | 40 | 77.1 | 1 170 000 | 65.9 | 0.34 |
+
 ## 4. Scaling exponents
 
 Least-squares slope of `log(median time)` against `log(m²)` over the six largest sizes
@@ -217,19 +236,19 @@ estimates several minutes per matrix at `m = 15000`.
 ## 7. Figures
 
 Figures A and B are the notebook's own output. Figures C–E are drawn by `scripts/plot_results.py` from
-the same CSV.
+the same CSV. Every axis in every figure is linear.
 
 | file | content |
 |---|---|
 | [`figures/fig_A_galil_park_linear.png`](figures/fig_A_galil_park_linear.png) | Galil–Park, linear axes, positives and negatives |
 | [`figures/fig_B_fast_methods_linear.png`](figures/fig_B_fast_methods_linear.png) | Z-pass, hashing, direct comparison, linear axes |
-| [`figures/fig_C_runtime_loglog.png`](figures/fig_C_runtime_loglog.png) | all four methods, log–log axes, with a slope-1 guide |
-| [`figures/fig_D_ns_per_entry.png`](figures/fig_D_ns_per_entry.png) | nanoseconds per entry against `m`; the direct baseline is omitted from the negatives panel (see §3) |
-| [`figures/fig_E_ratio_to_hashing.png`](figures/fig_E_ratio_to_hashing.png) | positives, time relative to hashing |
+| [`figures/fig_C_runtime_small_multiples.png`](figures/fig_C_runtime_small_multiples.png) | runtime against entries, one linear panel per method and input kind |
+| [`figures/fig_D_ns_per_entry.png`](figures/fig_D_ns_per_entry.png) | nanoseconds per entry, one linear panel per method and input kind; the direct baseline's negatives panel carries a note instead of data (see §3) |
+| [`figures/fig_E_ratio_to_hashing.png`](figures/fig_E_ratio_to_hashing.png) | positives, time relative to hashing, linear axes, two panels |
 
 ![A](figures/fig_A_galil_park_linear.png)
 ![B](figures/fig_B_fast_methods_linear.png)
-![C](figures/fig_C_runtime_loglog.png)
+![C](figures/fig_C_runtime_small_multiples.png)
 ![D](figures/fig_D_ns_per_entry.png)
 ![E](figures/fig_E_ratio_to_hashing.png)
 
