@@ -1,7 +1,8 @@
 #pragma once
 // Monte Carlo block-Hankel recognizer, implemented exactly as in
-//   C. N. Sekharan, "A Linear-Time Monte Carlo Algorithm for Recognizing Block Hankel Matrices",
-//   manuscript TCS-D-26-00739 (Definitions 4-7, Propositions 3-6, Algorithm 1, Theorems 1-2).
+//   Chandra N. Sekharan, "Efficient Detection of Nontrivial Block Hankel Structure: Algorithms and
+//   Performance Comparison", manuscript, 2026 (the definitions, propositions, algorithm and theorems
+//   of its polynomial-hashing sections; numbering below follows the earlier draft).
 // Conventions: zero-based A[a:b, c:d]; T_{p,q} = A[0:m-p, q:n], B_{p,q} = A[p:m, 0:n-q];
 // recthash(R) = sum A[i,j] beta1^{c2-1-j} beta2^{r2-1-i} (mod P), column base beta1, row base beta2;
 // prefix table G[r,c] = recthash(0,0,r,c) built by the recurrences of Proposition 5; rectangle

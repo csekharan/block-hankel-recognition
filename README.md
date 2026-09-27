@@ -14,9 +14,10 @@ inputs, cross-checks their answers, and times them on matrices from 240 × 240 t
 | 3 | **2-D polynomial hashing**, `k = 2` families, `P = 2^61 − 1` | Monte Carlo, one-sided error | [`src/bh/paper_hash.hpp`](src/bh/paper_hash.hpp) |
 | 4 | **Direct comparison** of the overlap matrices with early exit | deterministic baseline | [`src/bh/direct.hpp`](src/bh/direct.hpp) |
 
-Method 3 is the algorithm of C. N. Sekharan, *A Linear-Time Monte Carlo Algorithm for Recognizing Block
-Hankel Matrices* (manuscript TCS-D-26-00739), implemented step by step from the paper's definitions and
-propositions. Methods 1, 2 and 4 are the deterministic comparison points.
+Method 3 is the polynomial-hashing recognizer of Chandra N. Sekharan, *Efficient Detection of Nontrivial
+Block Hankel Structure: Algorithms and Performance Comparison* (manuscript, 2026), implemented step by
+step from the paper's definitions and propositions. Methods 1, 2 and 4 are the deterministic comparison
+points.
 
 **Headline result (m = 15000, medians of 3 matrices, best of 3 runs, one Colab vCPU):**
 
@@ -279,9 +280,10 @@ A detailed discussion, the fitted scaling exponents and the complete 60-row raw 
 
 ## 8. References
 
-- C. N. Sekharan, *A Linear-Time Monte Carlo Algorithm for Recognizing Block Hankel Matrices*,
-  manuscript, Definitions 4–7, Propositions 3–6, Algorithm 1 and Theorems 1–2 are
-  implemented in `src/bh/paper_hash.hpp`.
+- Chandra N. Sekharan, *Efficient Detection of Nontrivial Block Hankel Structure: Algorithms and
+  Performance Comparison*, manuscript, Department of Computer Science, Texas A&M University–Corpus
+  Christi, 2026. The 2-D polynomial-hashing recognizer in `src/bh/paper_hash.hpp` and the benchmark in
+  this repository are the ones reported there.
 - Z. Galil and K. Park, *Alphabet-independent two-dimensional witness computation*, SIAM Journal on
   Computing 25(5):907–935, 1996.
 - M. G. Main and R. J. Lorentz, *An O(n log n) algorithm for finding all repetitions in a string*,
